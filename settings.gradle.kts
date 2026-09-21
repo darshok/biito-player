@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "biito-player"
 include(":app")
+include(":components")
  

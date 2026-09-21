@@ -1,9 +1,10 @@
 package com.biito.player.data.repository
 
-import android.util.Log
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.provider.MediaStore
+import android.util.Log
+import androidx.core.net.toUri
 import com.biito.player.domain.model.MediaItem
 import com.biito.player.domain.repository.MediaRepository
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,7 @@ class LocalMediaRepository @Inject constructor(
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.ALBUM_ID
         )
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
@@ -40,11 +42,20 @@ class LocalMediaRepository @Inject constructor(
             )?.use { cursor ->
                 val count = cursor.count
                 Log.d("LocalMediaRepository", "Cursor count (with IS_MUSIC filter): $count")
-                
+
                 if (count == 0) {
                     // Check if there are any audio items at all without the filter
-                    contentResolver.query(collection, arrayOf(MediaStore.Audio.Media._ID), null, null, null)?.use { allCursor ->
-                        Log.d("LocalMediaRepository", "Total audio items in MediaStore (without filter): ${allCursor.count}")
+                    contentResolver.query(
+                        collection,
+                        arrayOf(MediaStore.Audio.Media._ID),
+                        null,
+                        null,
+                        null
+                    )?.use { allCursor ->
+                        Log.d(
+                            "LocalMediaRepository",
+                            "Total audio items in MediaStore (without filter): ${allCursor.count}"
+                        )
                     }
                 }
 
@@ -53,6 +64,9 @@ class LocalMediaRepository @Inject constructor(
                 val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
                 val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
                 val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+
+                val artworkUriBase = "content://media/external/audio/albumart".toUri()
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
@@ -60,10 +74,12 @@ class LocalMediaRepository @Inject constructor(
                     val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
                     val album = cursor.getString(albumColumn) ?: "Unknown Album"
                     val duration = cursor.getLong(durationColumn)
-                    val contentUri = ContentUris.withAppendedId(
-                        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                        id
-                    )
+                    val albumId = cursor.getLong(albumIdColumn)
+
+                    val contentUri =
+                        ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+
+                    val artworkUri = ContentUris.withAppendedId(artworkUriBase, albumId)
 
                     mediaItems.add(
                         MediaItem(
@@ -72,17 +88,22 @@ class LocalMediaRepository @Inject constructor(
                             artist = artist,
                             album = album,
                             duration = duration,
-                            contentUri = contentUri
+                            contentUri = contentUri,
+                            artworkUri = artworkUri
                         )
                     )
                 }
             } ?: Log.e("LocalMediaRepository", "Query returned null cursor for $collection")
         } catch (e: SecurityException) {
-            Log.e("LocalMediaRepository", "SecurityException: Permission probably not granted yet", e)
+            Log.e(
+                "LocalMediaRepository",
+                "SecurityException: Permission probably not granted yet",
+                e
+            )
         } catch (e: Exception) {
             Log.e("LocalMediaRepository", "Error querying MediaStore", e)
         }
-        
+
         Log.d("LocalMediaRepository", "Emitting ${mediaItems.size} items")
         emit(mediaItems)
     }.flowOn(Dispatchers.IO)

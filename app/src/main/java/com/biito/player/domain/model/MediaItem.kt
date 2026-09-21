@@ -9,5 +9,5 @@ data class MediaItem(
     val album: String,
     val duration: Long,
     val contentUri: Uri,
-    val artworkUri: Uri? = null
+    val artworkUri: Uri
 )

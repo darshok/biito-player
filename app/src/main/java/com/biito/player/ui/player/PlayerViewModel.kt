@@ -2,6 +2,8 @@ package com.biito.player.ui.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.media.MediaScannerConnection
+import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
@@ -12,12 +14,20 @@ import com.biito.player.domain.usecase.GetMediaItemsUseCase
 import com.biito.player.media.service.BiitoMediaService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.media3.common.MediaItem as Media3Item
@@ -37,6 +47,9 @@ class PlayerViewModel @Inject constructor(
 
     private val _mediaItems = MutableStateFlow<List<MediaItem>>(emptyList())
     val mediaItems = _mediaItems.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
 
     private val _playbackUiState = MutableStateFlow(PlaybackUiState())
     val playbackUiState = _playbackUiState.asStateFlow()
@@ -65,6 +78,15 @@ class PlayerViewModel @Inject constructor(
                 }
             }
         }
+        
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (events.contains(Player.EVENT_PLAYBACK_PARAMETERS_CHANGED) ||
+                events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) ||
+                events.contains(Player.EVENT_POSITION_DISCONTINUITY)
+            ) {
+                _playbackUiState.update { it.copy(currentPosition = player.currentPosition) }
+            }
+        }
     }
 
     init {
@@ -80,6 +102,43 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun refreshMediaItems() {
+        viewModelScope.launch {
+            if (_isRefreshing.value) return@launch
+            _isRefreshing.value = true
+
+            try {
+                withContext(Dispatchers.IO) {
+                    val filesToScan = mutableListOf<String>()
+                    val dirs = listOf(
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    )
+
+                    dirs.filter { it.exists() }.forEach { dir ->
+                        dir.walkTopDown()
+                            .filter { it.isFile }
+                            .filter { it.extension.lowercase() in listOf("mp3", "wav", "flac", "ogg", "m4a", "aac") }
+                            .forEach { filesToScan.add(it.absolutePath) }
+                    }
+
+                    if (filesToScan.isNotEmpty()) {
+                        val latch = CountDownLatch(filesToScan.size)
+                        MediaScannerConnection.scanFile(context, filesToScan.toTypedArray(), null) { _, _ ->
+                            latch.countDown()
+                        }
+                        latch.await(3, TimeUnit.SECONDS)
+                    }
+                }
+
+                val items = getMediaItemsUseCase().first()
+                _mediaItems.value = items
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
     private fun initializeController() {
         viewModelScope.launch {
             val sessionToken =
@@ -88,12 +147,12 @@ class PlayerViewModel @Inject constructor(
             mediaController = controller
             controller.addListener(playerListener)
 
-            // Initial state sync
             _playbackUiState.update {
                 it.copy(
                     isPlaying = controller.isPlaying,
                     currentMediaItem = _mediaItems.value.find { item -> item.id.toString() == controller.currentMediaItem?.mediaId },
-                    duration = controller.duration.coerceAtLeast(0L)
+                    duration = controller.duration.coerceAtLeast(0L),
+                    currentPosition = controller.currentPosition
                 )
             }
         }
@@ -101,14 +160,19 @@ class PlayerViewModel @Inject constructor(
 
     private fun startPositionUpdates() {
         viewModelScope.launch {
-            while (true) {
-                mediaController?.let { controller ->
-                    if (controller.isPlaying) {
-                        _playbackUiState.update { it.copy(currentPosition = controller.currentPosition) }
+            _playbackUiState
+                .map { it.isPlaying }
+                .distinctUntilChanged()
+                .collectLatest { isPlaying ->
+                    if (isPlaying) {
+                        while (true) {
+                            mediaController?.let { controller ->
+                                _playbackUiState.update { it.copy(currentPosition = controller.currentPosition) }
+                            }
+                            delay(500.milliseconds)
+                        }
                     }
                 }
-                delay(500.milliseconds)
-            }
         }
     }
 
