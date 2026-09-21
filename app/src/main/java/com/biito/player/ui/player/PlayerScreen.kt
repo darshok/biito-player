@@ -12,15 +12,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -32,9 +36,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.biito.player.domain.model.MediaItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,7 +90,8 @@ fun PlayerScreen(
         ) {
             items(mediaItems) { item ->
                 MediaItemRow(
-                    mediaItem = item
+                    mediaItem = item,
+                    isPlaying = playbackState.currentMediaItem?.id == item.id
                 ) { viewModel.playMedia(item) }
             }
         }
@@ -168,11 +177,61 @@ private fun formatTime(ms: Long): String {
 @Composable
 fun MediaItemRow(
     mediaItem: MediaItem,
+    isPlaying: Boolean,
     onClick: () -> Unit,
 ) {
     ListItem(
-        headlineContent = { Text(mediaItem.title) },
-        supportingContent = { Text("${mediaItem.artist} • ${mediaItem.album}") },
-        modifier = Modifier.clickable { onClick() }
+        colors = ListItemDefaults.colors(
+            containerColor = if (isPlaying) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+        ),
+        headlineContent = {
+            Text(
+                text = mediaItem.title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
+        },
+        supportingContent = {
+            Text(
+                text = "${mediaItem.artist} • ${mediaItem.album}",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        leadingContent = {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.size(48.dp)
+            ) {
+                if (mediaItem.artworkUri != null) {
+                    AsyncImage(
+                        model = mediaItem.artworkUri,
+                        contentDescription = "Album Art",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = "Artwork Placeholder",
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+        },
+        trailingContent = {
+            Text(
+                text = formatTime(mediaItem.duration),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        modifier = Modifier.padding(4.dp).clip(RoundedCornerShape(16.dp)).clickable { onClick() }
     )
 }
