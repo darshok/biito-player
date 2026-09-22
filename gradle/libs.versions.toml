@@ -14,6 +14,8 @@ activityCompose = "1.13.0"
 composeBom = "2026.09.00"
 uiTextGoogleFonts = "1.12.1"
 coil = "2.7.0"
+navigation3 = "1.1.7"
+kotlinxSerializationJson = "1.11.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -40,6 +42,9 @@ kotlinx-coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-co
 androidx-compose-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts", version.ref = "uiTextGoogleFonts" }
 compose-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+androidx-navigation3-ui = { group = "androidx.navigation3", name = "navigation3-ui", version.ref = "navigation3" }
+androidx-navigation3-runtime = { group = "androidx.navigation3", name = "navigation3-runtime", version.ref = "navigation3" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -47,5 +52,6 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version = "2.3.6" }
 

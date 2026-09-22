@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Biito Player</string>
-    <string name="player_screen_title">Biito Player</string>
+    <string name="track_list_screen_title">Biito Player</string>
+    <string name="player_screen_title">Now Playing</string>
 </resources>
