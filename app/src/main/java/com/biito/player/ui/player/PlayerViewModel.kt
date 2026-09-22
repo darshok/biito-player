@@ -62,12 +62,14 @@ class PlayerViewModel @Inject constructor(
         }
 
         override fun onMediaItemTransition(mediaItem: Media3Item?, reason: Int) {
-            val currentItem = _mediaItems.value.find { it.id.toString() == mediaItem?.mediaId }
-            _playbackUiState.update {
-                it.copy(
-                    currentMediaItem = currentItem,
-                    duration = mediaController?.duration?.coerceAtLeast(0L) ?: 0L
-                )
+            mediaItem?.let {
+                val currentItem = _mediaItems.value.find { it.id.toString() == mediaItem.mediaId }
+                _playbackUiState.update {
+                    it.copy(
+                        currentMediaItem = currentItem,
+                        duration = mediaController?.duration?.coerceAtLeast(0L) ?: 0L
+                    )
+                }
             }
         }
 
@@ -131,8 +133,7 @@ class PlayerViewModel @Inject constructor(
                     }
                 }
 
-                val items = getMediaItemsUseCase().first()
-                _mediaItems.value = items
+                _mediaItems.value = getMediaItemsUseCase().first()
             } finally {
                 _isRefreshing.value = false
             }

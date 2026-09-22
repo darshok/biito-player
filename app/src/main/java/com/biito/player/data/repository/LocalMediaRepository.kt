@@ -18,9 +18,8 @@ class LocalMediaRepository @Inject constructor(
 ) : MediaRepository {
 
     override fun getMediaItems(): Flow<List<MediaItem>> = flow {
-        Log.d("LocalMediaRepository", "Fetching media items...")
         val mediaItems = mutableListOf<MediaItem>()
-        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val queryUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
@@ -34,19 +33,16 @@ class LocalMediaRepository @Inject constructor(
 
         try {
             contentResolver.query(
-                collection,
+                queryUri,
                 projection,
                 selection,
                 null,
                 sortOrder
             )?.use { cursor ->
-                val count = cursor.count
-                Log.d("LocalMediaRepository", "Cursor count (with IS_MUSIC filter): $count")
-
-                if (count == 0) {
+                if (cursor.count == 0) {
                     // Check if there are any audio items at all without the filter
                     contentResolver.query(
-                        collection,
+                        queryUri,
                         arrayOf(MediaStore.Audio.Media._ID),
                         null,
                         null,
@@ -59,27 +55,30 @@ class LocalMediaRepository @Inject constructor(
                     }
                 }
 
-                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-                val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-                val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-                val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-                val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-                val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-
-                val artworkUriBase = "content://media/external/audio/albumart".toUri()
-
                 while (cursor.moveToNext()) {
-                    val id = cursor.getLong(idColumn)
-                    val title = cursor.getString(titleColumn) ?: "Unknown"
-                    val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
-                    val album = cursor.getString(albumColumn) ?: "Unknown Album"
-                    val duration = cursor.getLong(durationColumn)
-                    val albumId = cursor.getLong(albumIdColumn)
+                    val id =
+                        cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID))
+                    val title =
+                        cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE))
+                            ?: "Unknown"
+                    val artist =
+                        cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST))
+                            ?: "Unknown Artist"
+                    val album =
+                        cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM))
+                            ?: "Unknown Album"
+                    val duration =
+                        cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION))
+                    val albumId =
+                        cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID))
 
                     val contentUri =
                         ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
 
-                    val artworkUri = ContentUris.withAppendedId(artworkUriBase, albumId)
+                    val artworkUri = ContentUris.withAppendedId(
+                        "content://media/external/audio/albumart".toUri(),
+                        albumId
+                    )
 
                     mediaItems.add(
                         MediaItem(
@@ -93,7 +92,7 @@ class LocalMediaRepository @Inject constructor(
                         )
                     )
                 }
-            } ?: Log.e("LocalMediaRepository", "Query returned null cursor for $collection")
+            } ?: Log.e("LocalMediaRepository", "Query returned null cursor for $queryUri")
         } catch (e: SecurityException) {
             Log.e(
                 "LocalMediaRepository",
@@ -103,8 +102,6 @@ class LocalMediaRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e("LocalMediaRepository", "Error querying MediaStore", e)
         }
-
-        Log.d("LocalMediaRepository", "Emitting ${mediaItems.size} items")
         emit(mediaItems)
     }.flowOn(Dispatchers.IO)
 }
