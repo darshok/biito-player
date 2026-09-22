@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">biito-player</string>
+    <string name="app_name">Biito Player</string>
+    <string name="player_screen_title">Biito Player</string>
 </resources>

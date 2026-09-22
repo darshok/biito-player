@@ -16,9 +16,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.biito.player.R
 import com.biito.player.components.ui.BiitoMediaItemRow
 import com.biito.player.components.ui.BiitoPlaybackControlBar
+import com.biito.player.components.ui.BiitoTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +49,11 @@ fun PlayerScreen(
     }
 
     Scaffold(
+        topBar = {
+            BiitoTopAppBar(
+                title = stringResource(id = R.string.player_screen_title),
+            )
+        },
         bottomBar = {
             playbackState.currentMediaItem?.let { currentItem ->
                 BiitoPlaybackControlBar(
